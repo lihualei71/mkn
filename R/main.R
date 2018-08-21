@@ -31,6 +31,7 @@ get_nreveals <- function(nmasks, ninter){
     -diff(fit_stamps)
 }
 
+#' @export
 mkn.filter <- function(X, y, k,
                        knockoffs_fun = mkn_create.gaussian,
                        stats_fun= mkn_stat.glmnet_coef,
@@ -43,7 +44,8 @@ mkn.filter <- function(X, y, k,
                        use_masked_pvals = TRUE,
                        ninter = 20,
                        offset = 1,
-                       verbose = TRUE){
+                       verbose = TRUE,
+                       return_data = TRUE){
     stopifnot(is.function(knockoffs_fun))
     stopifnot(is.function(stats_fun))
     stopifnot(offset %in% c(0, 1))
@@ -52,12 +54,27 @@ mkn.filter <- function(X, y, k,
     n <- nrow(X)
     p <- ncol(X)
     knockoffs_args <- c(list(X = X, k = k), knockoffs_args)
-    Xk <- do.call(knockoffs_fun, knockoffs_args)    
+    if (verbose){
+        cat("Generate knockoff variables\n")
+    }
+    Xk <- do.call(knockoffs_fun, knockoffs_args)
+    if (verbose){
+        cat("Knockoff variables generated\n")
+        cat("\n")
+    }
+
     mask <- rep(TRUE, p)
-    
+
     stats_args_root <- c(list(X = X, Xk = Xk, y = y), stats_args)
     stats_args <- c(list(subset = mask), stats_args_root)
+    if (verbose){
+        cat("Fitting the initial score\n")
+    }
     score <- do.call(stats_fun, stats_args)
+    if (verbose){
+        cat("Initial score obtained\n")
+        cat("\n")
+    }
 
     info <- get_score_info(score$mask)
     pvals <- info[, 1]
@@ -66,8 +83,8 @@ mkn.filter <- function(X, y, k,
     R <- sum(pvals < 0.5)
     minfdp <- fdp_hat(A, R, offset)
     fdp_list <- minfdp
-    reveal_order <- vector("integer")    
-    
+    reveal_order <- vector("integer")
+
     if (any(inds == 0)){
         init_inds <- which(inds == 0)
         init_score <- score$mask[init_inds, 1]
@@ -95,15 +112,16 @@ mkn.filter <- function(X, y, k,
     }
 
     if (verbose){
+        cat("Interactive re-fitting starts:\n")
         pb <- utils::txtProgressBar(min = 0, max = ninter,
                                     style = 3, width = 50)
     }
-    
+
     for (i in 1:ninter){
         if (verbose){
             utils::setTxtProgressBar(pb, i)
         }
-        
+
         nreveal <- nreveal_list[i]
         stats_args <- c(list(subset = mask), stats_args_root)
         score <- do.call(stats_fun, stats_args)
@@ -119,12 +137,22 @@ mkn.filter <- function(X, y, k,
         fdp_list <- c(fdp_list,
                       fdp_hat(A - Adecre, R - Rdecre, offset))
         reveal_order <- c(reveal_order, rm_inds)
+        A <- A - max(Adecre)
+        R <- R - max(Rdecre)
 
         mask[rm_inds] <- FALSE
     }
+    cat("\n")
+    cat("Interactive re-fitting ends\n")
 
-    print(sum(mask))
     qvals <- rep(1, p)
     qvals[reveal_order] <- cummin(fdp_list[1:p])
-    return(qvals)
+    if (return_data){
+        data <- list(X = X, Xk = Xk, y = y)
+    } else {
+        data <- NULL
+    }
+
+    structure(list(call = match.call(), qvals = qvals, data = data),
+              class = "mkn_result")
 }

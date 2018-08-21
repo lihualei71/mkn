@@ -5,12 +5,13 @@ mineig <- function(A, tol = 1e-9){
     lambda_min <- RSpectra::eigs_sym(A, 1, which = "SM", opts = list(retvec = FALSE, maxitr = 100, tol))$values
     options(warn = oldw)
     if (length(lambda_min) == 0) {
-        lambda_min <- min(eigen(A, symmetric = TRUE)$values)
+        lambda_min <- min(base::eigen(A, symmetric = TRUE)$values)
     }
     return(Re(lambda_min))
 }
 
-mkn_create.solve_sdp <- function(Sigma, 
+#' @export
+mkn_create.solve_sdp <- function(Sigma,
                                  rho = 0.9, gaptol = 1e-06,
                                  maxit = 1000, psdtol = 1e-9){
     Smat <- knockoff::create.solve_sdp(Sigma, gaptol, maxit)
@@ -23,7 +24,8 @@ mkn_create.solve_sdp <- function(Sigma,
     return(Smat)
 }
 
-mkn_create.solve_asdp <- function(Sigma, 
+#' @export
+mkn_create.solve_asdp <- function(Sigma,
                                   rho = 0.9,
                                   nBlocks = 10, cores = 1,
                                   gaptol = 1e-06,
@@ -38,9 +40,9 @@ mkn_create.solve_asdp <- function(Sigma,
     return(Smat)
 }
 
-mkn_create.solve_equi <- function(Sigma, 
+mkn_create.solve_equi <- function(Sigma,
                                   tol = 1e-9, psdtol = 1e-9){
-    G <- cov2cor(Sigma)
+    G <- stats::cov2cor(Sigma)
     lambda_min <- mineig(G, tol)
     Smat <- rep(lambda_min, nrow(Sigma))
     eps <- psdtol / 10

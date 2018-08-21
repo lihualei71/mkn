@@ -5,6 +5,7 @@ block_t <- function(Z, n, p, k){
     Z[, ind]
 }
 
+#' @export
 mkn_create.gaussian <- function(X, k, mu, Sigma,
                                 method = c("asdp", "sdp", "equi"),
                                 s_const = 1,
@@ -20,11 +21,11 @@ mkn_create.gaussian <- function(X, k, mu, Sigma,
     }
     if (is.null(diag_s)) {
         diag_s = switch(match.arg(method),
-            equi = mkn_create.solve_equi(Sigma, ...), 
+            equi = mkn_create.solve_equi(Sigma, ...),
             sdp = mkn_create.solve_sdp(Sigma, ...),
             asdp = mkn_create.solve_asdp(Sigma, ...))
-        diag_s <- diag_s * s_const
     }
+    diag_s <- diag_s * s_const
 
     n <- nrow(X)
     p <- nrow(Sigma)
@@ -38,26 +39,26 @@ mkn_create.gaussian <- function(X, k, mu, Sigma,
     ## SigmaInv_S <- solve(Sigma, diag(diag_s))
     ## Lambda <- diag(diag_s) - diag_s * SigmaInv_S
     ## cov_cond <- Matrix::kronecker(matrix(1, k, k), Lambda) + Matrix::kronecker(diag(k), diag(diag_s))
-    ## Z <- matrix(rnorm(n * p * k), nrow = n) %*% chol(cov_cond)
+    ## Z <- matrix(stats::rnorm(n * p * k), nrow = n) %*% chol(cov_cond)
     ## time.end <- Sys.time()
     ## time.end - time.start
 
-    sqrtS <- sqrt(diag_s)    
+    sqrtS <- sqrt(diag_s)
     if (s_const <= 1){
         ## ~ 28x faster than the naive approach with (n, p, k) = (1000, 500, 10)
         off_diag <- diag(diag_s) - diag_s * (solve(Sigma, diag(diag_s)))
-        addon <- matrix(rnorm(n * p), nrow = n) %*%
-            chol(off_diag) + mu_cond
-        Xk <- rep(sqrtS, k) * matrix(rnorm(n * p * k), ncol = n)
+        addon <- matrix(stats::rnorm(n * p), nrow = n) %*%
+            Matrix::chol(off_diag) + mu_cond
+        Xk <- rep(sqrtS, k) * matrix(stats::rnorm(n * p * k), ncol = n)
         return(t(Xk) + as.numeric(addon))
     } else {
-        ## ~ 14x faster than the naive approach with (n, p, k) = (1000, 500, 10)       
+        ## ~ 14x faster than the naive approach with (n, p, k) = (1000, 500, 10)
         p <- length(diag_s)
         res <- base::eigen(sqrtS * solve(Sigma, diag(sqrtS)), symmetric = TRUE)
         D <- res$values
         U <- sqrtS * res$vectors
         ## Step 1
-        Xk <- matrix(rnorm(n * p * k), ncol = k)
+        Xk <- matrix(stats::rnorm(n * p * k), ncol = k)
         ## Step 2
         Xk[, 1] <- Xk[, 1] * sqrt(rep(1 + k * (1 - D), n))
         ## Step 3

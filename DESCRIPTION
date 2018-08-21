@@ -1,11 +1,28 @@
 Package: mkn
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: Multiple Hypotheses Testing with Multiple Knockoffs
+Version: 0.1.0.9000
+Authors@R: person("Lihua", "Lei", email = "lihua.lei@berkeley.edu", role = c("aut", "cre"))
+Maintainer: Lihua Lei <lihua.lei@berkeley.edu>
+Description: False discovery rate control via adaptive/interactive multiple knockoffs.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+URL: https://github.com/lihualei71/mkn
+BugReports: https://github.com/lihualei71/mkn/issues
+Suggests:
+    doMC,
+    glmnet,
+    knitr,
+    parallel,
+    rmarkdown,
+    testthat
+RoxygenNote: 6.1.0
+Depends:
+    stats,
+    utils    
+Imports:
+    knockoff,
+    MASS,
+    Matrix,
+    RSpectra
