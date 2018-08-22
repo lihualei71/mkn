@@ -5,12 +5,19 @@ block_t <- function(Z, n, p, k){
     Z[, ind]
 }
 
-#' @export
-mkn_create.gaussian <- function(X, k, mu, Sigma,
+mkn_create_gaussian <- function(X, k, mu, Sigma,
                                 method = c("asdp", "sdp", "equi"),
                                 s_const = 1,
                                 diag_s = NULL,
                                 ...){
+    if (!is.matrix(X)){
+        X <- as.matrix(X)
+    }
+    
+    if (k == 1){
+        knockoff::create.gaussian(X, mu, Sigma, method, diag_s)
+    }
+
     if (s_const > (k + 1) / k - 1e-9){
         stop("The multiplier of S cannot exceed (k + 1) / k.")
     }
@@ -21,9 +28,9 @@ mkn_create.gaussian <- function(X, k, mu, Sigma,
     }
     if (is.null(diag_s)) {
         diag_s = switch(match.arg(method),
-            equi = mkn_create.solve_equi(Sigma, ...),
-            sdp = mkn_create.solve_sdp(Sigma, ...),
-            asdp = mkn_create.solve_asdp(Sigma, ...))
+            equi = mkn_create_solve_equi(Sigma, ...),
+            sdp = mkn_create_solve_sdp(Sigma, ...),
+            asdp = mkn_create_solve_asdp(Sigma, ...))
     }
     diag_s <- diag_s * s_const
 

@@ -2,17 +2,17 @@ fdp_hat <- function(A, R, offset){
     (offset + A) / pmax(1, R)
 }
 
-get_score_info <- function(score){
-    m <- ncol(score)
+get_scores_info <- function(scores){
+    m <- ncol(scores)
     if (m %% 2 == 0){
-        info <- apply(score, 1, function(x){
+        info <- apply(scores, 1, function(x){
             rk <- rank(-x, ties.method = "last")
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
-        info <- apply(score, 1, function(x){
+        info <- apply(scores, 1, function(x){
             rk <- rank(-x, ties.method = "last")
             pval <- rk[1] / m
             if (rk[1] == m){
@@ -31,31 +31,155 @@ get_nreveals <- function(nmasks, ninter){
     -diff(fit_stamps)
 }
 
+get_funcs <- function(knockoffs_fun, scores_fun, fstats_fun){
+    if (is.character(knockoffs_fun)){
+        knockoffs_fun <-
+            switch(knockoffs_fun,
+                   "gaussian" = mkn_create_gaussian,
+                   NULL)
+    } else if (!is.function(knockoffs_fun)){
+        knockoffs_fun <- NULL
+    }
+    if (is.null(knockoffs_fun)){
+        stop("knockoffs_fun should be a valid string or a function")
+    }
+
+    if (is.character(scores_fun)){
+        scores_fun <-
+            switch(scores_fun,
+                   "glmnet_coef" = mkn_scores_glmnet_coef,
+                   NULL)
+    } else if (!is.function(scores_fun)){
+        scores_fun <- NULL
+    }
+    if (is.null(scores_fun)){
+        stop("scores_fun should be a valid string or a function")
+    }
+
+    if (is.character(fstats_fun)){
+        fstats_fun <-
+            switch(fstats_fun,
+                   "max" = mkn_fstats_max,
+                   "diff" = mkn_fstats_diff,
+                   NULL)
+    } else if (!is.function(fstats_fun)){
+        fstats_fun <- NULL
+    }
+    if (is.null(fstats_fun)){
+        stop("fstats_fun should be a valid string or a function")
+    }
+    
+    list(knockoffs_fun = knockoffs_fun,
+         scores_fun = scores_fun,
+         fstats_fun = fstats_fun)
+}
+
+#' The Multiple-Knockoffs Filter
+#'
+#' \code{mkn_filter} is a framework for model selection via multiple knockoff variables.
+#'
+#' \code{mkn_filter} consists of five main steps:
+#' \itemize{
+#'  \item{Step 1: } generate \code{k} knockoffs for each variable in \code{X} by \code{knockoffs_fun};
+#'  \item{Step 2: } calculate the initial scores for all variables and their knockoffs by \code{scores_fun} and then calculate the p-values, as the normalized rank;
+#'  \item{Step 3: } winnow the original knockoff variables if \code{winnow = TRUE} and maintain one knockoff for each variable;
+#'  \item{Step 4: } at each time when a certain number of hypotheses are revealed, re-calculate the scores for each variable by \code{scores_fun} and calculate the filtering statistics by \code{fstats_fun}.
+#'  \item{Step 5: } reveal the hypotheses based on the filtering statistics, and the masked p-values, i.e. min\{p, 1 - p\}, if \code{use_masked_pvals = TRUE}.
+#' }
+#' 
+#' \code{knockoffs_fun}, \code{scores_fun}, \code{fstats_fun} should be functions in general and can be particular valid strings that corresponds to internal functions in \code{mkn} package.
+#' \itemize{
+#'  \item{\code{knockoffs_fun}} {should take at least \code{X} as the input and output a matrix of size (n, pk) where (n, p) = dim(X). If \code{knockoffs_fun = "gaussian"}, by default, it will generate model-X gaussian knockoffs in which case \code{mu} and \code{Sigma} should appear in \code{knockoffs_args}. }
+#'  \item{\code{scores_fun} should take at least four inputs: \code{X}, \code{Xk} (for the output of \code{knockoffs_fun}), \code{y} and \code{subset} as a logical vector of size p which indicates the set of masked hypotheses. Given the input, \code{scores_fun} will calculate the scores based on all columns in \code{X} and the columns that correspond to \code{subset} in \code{Xk}. The output should be in the form of \code{list(mask = , unmask = )} where \code{mask} is a matrix of size (s, k + 1) (\code{s = sum(subset)}) that gives the score for each variable and its knockoff variables in \code{subset}, and \code{unmask} is a vector of size (p - s) that gives the score for each variable in the complement of \code{subset}. If \code{scores_fun = "glmnet_coef"}, by default, it will calculate the estimated coefficient from cross-validate glmnet.}
+#' \item{\code{fstats_fun} should take at least \code{score}, a matrix, as input and output a vector of scores by combining the columns of \code{score} in a symmetric way. If \code{fstats_fun = "diff"}, by default, it will output the absolute difference of the first two columns. If \code{fstats_fun = "max"}, it will output the maximum of all columns.}
+#' }
+#'
+#' If \code{use_masked_pvals = TRUE}, by default, the hypotheses will be first sorted by masked p-values from the largest (least promising) to the smallest (least promising) and then sorted by the filtering statistics from the smallest. If \code{use_masked_pvals = TRUE}, the hypotheses will only be sorted by the filter statistics.
+#' 
+#' @param X matrix or data.frame. Should be compatible to \code{knockoffs_fun} and \code{scores_fun}. 
+#' @param y vector. Response/Outcome
+#' @param k positive integer. The number of knockoffs
+#' @param knockoffs_fun string or function. See Details
+#' @param scores_fun string or function. See Details
+#' @param fstats_fun string or function. See Details
+#' @param knockoffs_args list. Extra arguments passed into knockoffs_fun
+#' @param scores_args list. Extra arguments passed into scores_fun
+#' @param fstats_args list. Extra arguments passed into fstats_fun
+#' @param use_masked_pvals logical. Indicate whether the masked p-values are incorporated into the ranking. See Details
+#' @param winnow logical. Indicate whether the knockoffs are winnowed after initial score calculation
+#' @param inter logical. Indicate whether interactive re-fitting is performed 
+#' @param ninter positive integer. Number of rounds of interactive re-fitting. See Details
+#' @param offset 0/1. The correction factor in the formula of estimated FDP. The values 1 yields Knockoffs+ procedure that is guaranteed to control FDR. The value 0 yields a more liberal procedure that is proved to control modified-FDR = E[V / (R + 1 / alpha)] where alpha is the target FDR level
+#' @param verbose logical. Indicate whether the progress is printed to the console
+#' @param return_data logical. Indicate whether to output the data in the form of \code{list(X = , Xk = , y = )} where Xk is the knockoff variables before winnowing.
+#' 
+#' @return
+#' \item{qvals}{vector. The i-th element gives the minimum target FDR level for which the i-th hypothesis can be rejected. The value Inf refers to the case that the i-th hypothesis is never rejected}
+#' \item{data}{list. NULL if return_date = FALSE. }
+#' 
+#' @examples
+#' \donttest{
+#' ## Generate data
+#' n <- 1000
+#' p <- 500
+#' X <- matrix(rnorm(n * p), n, p)
+#' beta <- c(rep(0.1, 50), rep(0, p - 50))
+#' y <- X %*% beta + rnorm(n)
+#' Sigma <- diag(p)
+#'
+#' knockoffs_args <- list(mu = rep(0, p), Sigma = Sigma,
+#'                        method = "sdp")
+#'
+#' ## Run mkn_filter
+#' k <- 10
+#' set.seed(1)
+#' res <- mkn_filter(X, y, 10, knockoffs_args = knockoffs_args)
+#'
+#' ## Get the set of rejections when alpha = 0.1
+#' which(res$qvals <= 0.1)
+#' }
 #' @export
-mkn.filter <- function(X, y, k,
-                       knockoffs_fun = mkn_create.gaussian,
-                       stats_fun= mkn_stat.glmnet_coef,
-                       summarize_fun = mkn_summarize.max,
+
+mkn_filter <- function(X, y, k,
+                       knockoffs_fun = "gaussian",
+                       scores_fun = "glmnet_coef",
+                       fstats_fun = "diff",
                        knockoffs_args = list(),
-                       stats_args = list(),
-                       summarize_args = list(),
-                       purify = TRUE,
-                       inter = TRUE,
+                       scores_args = list(),
+                       fstats_args = list(),
                        use_masked_pvals = TRUE,
-                       ninter = 20,
+                       winnow = TRUE,
+                       inter = TRUE,
+                       ninter = 10,
                        offset = 1,
                        verbose = TRUE,
                        return_data = TRUE){
-    stopifnot(is.function(knockoffs_fun))
-    stopifnot(is.function(stats_fun))
-    stopifnot(offset %in% c(0, 1))
-    stopifnot(k == floor(k) && k > 0)
-
+    if (!offset %in% c(0, 1)){
+        stop("offset must be either 1 or 0")
+    }
+    if (k != floor(k) || k <= 0){
+        stop("k must be a positive integer")
+    }
+    if (k == 1){
+        winnow <- FALSE
+    }
     n <- nrow(X)
+    if (length(y) != n){
+        stop("y should have the same length as nrow(X)")
+    }
+    if (!inter){
+        ninter <- 1
+    }
+    
+    funcs <- get_funcs(knockoffs_fun, scores_fun, fstats_fun)
+    knockoffs_fun <- funcs$knockoffs_fun
+    scores_fun <- funcs$scores_fun
+    fstats_fun <- funcs$fstats_fun
+    
     p <- ncol(X)
     knockoffs_args <- c(list(X = X, k = k), knockoffs_args)
     if (verbose){
-        cat("Generate knockoff variables\n")
+        cat("Generating knockoff variables\n")
     }
     Xk <- do.call(knockoffs_fun, knockoffs_args)
     if (verbose){
@@ -65,30 +189,35 @@ mkn.filter <- function(X, y, k,
 
     mask <- rep(TRUE, p)
 
-    stats_args_root <- c(list(X = X, Xk = Xk, y = y), stats_args)
-    stats_args <- c(list(subset = mask), stats_args_root)
+    scores_args_root <- c(list(X = X, Xk = Xk, y = y), scores_args)
+    scores_args <- c(list(subset = mask), scores_args_root)
     if (verbose){
-        cat("Fitting the initial score\n")
+        cat("Fitting the initial scores\n")
     }
-    score <- do.call(stats_fun, stats_args)
+    scores <- do.call(scores_fun, scores_args)
     if (verbose){
-        cat("Initial score obtained\n")
+        cat("Initial scores obtained\n")
         cat("\n")
     }
 
-    info <- get_score_info(score$mask)
+    info <- get_scores_info(scores$mask)
     pvals <- info[, 1]
-    inds <- info[, 2]
+    winnow_inds <- info[, 2]
+    if (winnow){
+        knockoff_inds <- (1:p) + pmax(winnow_inds - 1, 0) * p
+        scores_args_root$Xk <- Xk[, knockoff_inds]
+    }
+
     A <- sum(pvals > 0.5)
     R <- sum(pvals < 0.5)
     minfdp <- fdp_hat(A, R, offset)
     fdp_list <- minfdp
     reveal_order <- vector("integer")
 
-    if (any(inds == 0)){
-        init_inds <- which(inds == 0)
-        init_score <- score$mask[init_inds, 1]
-        init_inds <- init_inds[order(init_score)]
+    if (any(winnow_inds == 0)){
+        init_inds <- which(winnow_inds == 0)
+        init_scores <- scores$mask[init_inds, 1]
+        init_inds <- init_inds[order(init_scores)]
         fdp_list <- c(fdp_list,
                       fdp_hat(A - 1:length(init_inds), R, offset))
         A <- A - length(init_inds)
@@ -96,41 +225,47 @@ mkn.filter <- function(X, y, k,
         mask[init_inds] <- FALSE
     }
 
-    if (purify){
-        knockoff_inds <- (1:p) + pmax(info[, 2] - 1, 0) * p
-        Xk <- Xk[, knockoff_inds]
-        stats_args_root$Xk <- Xk
-    }
-
     nmasks <- sum(mask)
-    if (!inter){
-        ninter <- 1
+    if (nmasks > 0){
+        nreveal_list <- get_nreveals(nmasks, ninter)
     }
-    nreveal_list <- get_nreveals(nmasks, ninter)
     if (use_masked_pvals){
         masked_pvals <- pmin(pvals, 1 - pvals)
     }
 
-    if (verbose){
+    if (verbose && nmasks > 0){
         cat("Interactive re-fitting starts:\n")
         pb <- utils::txtProgressBar(min = 0, max = ninter,
                                     style = 3, width = 50)
     }
 
+    if (use_masked_pvals){
+        fstats_args_root <- c(list(masked_pvals = masked_pvals), fstats_args)
+    } else {
+        fstats_args_root <- c(list(masked_pvals = NULL), fstats_args)
+    }
+
     for (i in 1:ninter){
+        nmasks <- sum(mask)
+        if (nmasks == 0){
+            break
+        }
+        
         if (verbose){
             utils::setTxtProgressBar(pb, i)
         }
 
         nreveal <- nreveal_list[i]
-        stats_args <- c(list(subset = mask), stats_args_root)
-        score <- do.call(stats_fun, stats_args)
-        stats <- summarize_fun(score$mask)
-
-        if (use_masked_pvals){
-            stats <- stats - masked_pvals[mask] * max(stats) * (k + 1)
+        scores_args <- c(list(subset = mask), scores_args_root)
+        scores <- do.call(scores_fun, scores_args)
+        if (!winnow && k > 1){
+            knockoff_inds <- cbind(1:nmasks, winnow_inds[mask])
+            scores$mask <- cbind(scores$mask[, 1], scores$mask[knockoff_inds])
         }
-        rm_inds <- which(mask)[order(stats)[1:nreveal]]
+        fstats_args <- c(list(scores = scores, mask = mask), fstats_args_root)
+        fstats <- do.call(fstats_fun, fstats_args)
+
+        rm_inds <- which(mask)[order(fstats)[1:nreveal]]
 
         Adecre <- cumsum(pvals[rm_inds] > 0.5)
         Rdecre <- cumsum(pvals[rm_inds] < 0.5)
@@ -142,17 +277,21 @@ mkn.filter <- function(X, y, k,
 
         mask[rm_inds] <- FALSE
     }
-    cat("\n")
-    cat("Interactive re-fitting ends\n")
+    if (verbose){
+        cat("\n")
+        cat("Interactive re-fitting ends\n")
+    }
 
     qvals <- rep(1, p)
     qvals[reveal_order] <- cummin(fdp_list[1:p])
+    qvals[pvals > 0.5] <- Inf
     if (return_data){
         data <- list(X = X, Xk = Xk, y = y)
     } else {
         data <- NULL
     }
 
-    structure(list(call = match.call(), qvals = qvals, data = data),
+    structure(list(call = match.call(),
+                   qvals = qvals, data = data),
               class = "mkn_result")
 }

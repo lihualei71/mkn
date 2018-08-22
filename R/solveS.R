@@ -10,8 +10,7 @@ mineig <- function(A, tol = 1e-9){
     return(Re(lambda_min))
 }
 
-#' @export
-mkn_create.solve_sdp <- function(Sigma,
+mkn_create_solve_sdp <- function(Sigma,
                                  rho = 0.9, gaptol = 1e-06,
                                  maxit = 1000, psdtol = 1e-9){
     Smat <- knockoff::create.solve_sdp(Sigma, gaptol, maxit)
@@ -24,8 +23,7 @@ mkn_create.solve_sdp <- function(Sigma,
     return(Smat)
 }
 
-#' @export
-mkn_create.solve_asdp <- function(Sigma,
+mkn_create_solve_asdp <- function(Sigma,
                                   rho = 0.9,
                                   nBlocks = 10, cores = 1,
                                   gaptol = 1e-06,
@@ -40,7 +38,7 @@ mkn_create.solve_asdp <- function(Sigma,
     return(Smat)
 }
 
-mkn_create.solve_equi <- function(Sigma,
+mkn_create_solve_equi <- function(Sigma,
                                   tol = 1e-9, psdtol = 1e-9){
     G <- stats::cov2cor(Sigma)
     lambda_min <- mineig(G, tol)
