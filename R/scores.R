@@ -82,7 +82,8 @@ mkn_scores_glmnet_coef <- function(X, Xk, y,
 
     lambda <- fit$lambda.min
     scores <- abs(glmnet::coef.cv.glmnet(fit, s = cvtype)[-1])
-    resids <- y - glmnet::predict.cv.glmnet(fit, Xfull, s = cvtype)
+    resids <- y - glmnet::predict.cv.glmnet(fit, Xfull, s = cvtype,
+                                            type = "response")
     if (use_LR){
         LR <- abs(Matrix::crossprod(Xfull, resids) / n)
         LR[scores != 0] <- lambda
