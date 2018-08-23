@@ -1,7 +1,7 @@
 Package: mkn
 Type: Package
 Title: Multiple Hypotheses Testing with Multiple Knockoffs
-Version: 0.1.0.9000
+Version: 0.2.0.9000
 Authors@R: person("Lihua", "Lei", email = "lihua.lei@berkeley.edu", role = c("aut", "cre"))
 Maintainer: Lihua Lei <lihua.lei@berkeley.edu>
 Description: False discovery rate control via adaptive/interactive multiple knockoffs.
@@ -25,4 +25,5 @@ Imports:
     knockoff,
     MASS,
     Matrix,
+    methods,
     RSpectra
