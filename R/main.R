@@ -224,10 +224,10 @@ mkn_filter <- function(X, y, k,
         nreveal <- nreveal_list[i]
         scores_args <- c(list(subset = mask), scores_args_root)
         scores <- do.call(scores_fun, scores_args)
-        if (!winnow && k > 1){
-            knockoff_inds <- cbind(1:nmasks, winnow_inds[mask])
-            scores$mask <- cbind(scores$mask[, 1], scores$mask[knockoff_inds])
-        }
+        ## if (!winnow && k > 1){
+        ##     knockoff_inds <- cbind(1:nmasks, winnow_inds[mask])
+        ##     scores$mask <- cbind(scores$mask[, 1], scores$mask[knockoff_inds])
+        ## }
         fstats_args <- c(list(scores = scores, mask = mask), fstats_args_root)
         fstats <- do.call(fstats_fun, fstats_args)
 
