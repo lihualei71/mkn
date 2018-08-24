@@ -5,7 +5,7 @@
 \title{Generator of Multiple Gaussian Model-X Knockoffs}
 \usage{
 mkn_create_gaussian(X, k, mu, Sigma, method = c("asdp", "sdp", "equi"),
-  s_const = 1, diag_s = NULL, ...)
+  s_const = (k + 1)/k, diag_s = NULL, ...)
 }
 \arguments{
 \item{X}{covariate matrix}

@@ -6,14 +6,14 @@ get_scores_info <- function(scores){
     m <- ncol(scores)
     if (m %% 2 == 0){
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "random")
+            rk <- rank(-x, ties.method = "last")
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "random")
+            rk <- rank(-x, ties.method = "last")
             pval <- rk[1] / m
             if (rk[1] == m){
                 reflectid <- 0
@@ -50,7 +50,7 @@ get_nreveals <- function(nmasks, ninter){
 #' \itemize{
 #'  \item{\code{knockoffs_fun}} {should take at least \code{X} as the input and output a matrix of size (n, pk) where (n, p) = dim(X). By default, \code{knockoffs_fun = mkn_create_gaussian}, which will generate model-X gaussian knockoffs in which case \code{mu} and \code{Sigma} should appear in \code{knockoffs_args}. See \code{\link{mkn_create_gaussian}} for other arguments.}
 #'  \item{\code{scores_fun}} {should take at least four inputs: \code{X}, \code{Xk} (for the output of \code{knockoffs_fun}), \code{y} and \code{subset} as a logical vector of size p which indicates the set of masked hypotheses. Given the input, \code{scores_fun} will calculate the scores based on all columns in \code{X} and the columns that correspond to \code{subset} in \code{Xk}. The output should be in the form of \code{list(mask = , unmask = )} where \code{mask} is a matrix of size (s, k + 1) (\code{s = sum(subset)}) that gives the score for each variable and its knockoff variables in \code{subset}, and \code{unmask} is a vector of size (p - s) that gives the score for each variable in the complement of \code{subset}. By default, \code{scores_fun = mkn_scores_glmnet_coef}. See \code{\link{mkn_scores_glmnet_coef}} for details.}
-#' \item{\code{fstats_fun}} {should take at least three inputs: \code{score}, a matrix with 2 columns that corresponds to the original variables and their winnowed knockoff variables, \code{mask}, a logical vector that indicates whether each hypothesis is masked, and \code{masked_pvals}, a numeric vector that gives the masked p-values (min\{p, 1 - p\}). It should output a vector of scores by combining the columns of \code{score} in a symmetric way. By default, \code{fstats_fun = mkn_fstats_diff} which will output the absolute difference of two columns. If \code{fstats_fun = mkn_fstats_max}, it will output the maximum of two columns.}
+#' \item{\code{fstats_fun}} {should take at least three inputs: \code{score}, a matrix that corresponds to the original variables and their knockoff variables, \code{mask}, a logical vector that indicates whether each hypothesis is masked, and \code{masked_pvals}, a numeric vector that gives the masked p-values (min\{p, 1 - p\}). It should output a vector of scores by combining the columns of \code{score} in a symmetric way. By default, \code{fstats_fun = mkn_fstats_range} which will output the difference of the maximum and the minimum scores. If \code{fstats_fun = mkn_fstats_max}, it will output the maximum scores}
 #' }
 #'
 #' If \code{use_masked_pvals = TRUE}, by default, the hypotheses will be first sorted by masked p-values from the largest (least promising) to the smallest (least promising) and then sorted by the filtering statistics from the smallest. If \code{use_masked_pvals = TRUE}, the hypotheses will only be sorted by the filter statistics.
@@ -101,7 +101,7 @@ get_nreveals <- function(nmasks, ninter){
 mkn_filter <- function(X, y, k,
                        knockoffs_fun = mkn_create_gaussian,
                        scores_fun = mkn_scores_glmnet_coef,
-                       fstats_fun = mkn_fstats_diff,
+                       fstats_fun = mkn_fstats_range,
                        knockoffs_args = list(),
                        scores_args = list(),
                        fstats_args = list(),

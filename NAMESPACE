@@ -2,8 +2,8 @@
 
 export(mkn_create_gaussian)
 export(mkn_filter)
-export(mkn_fstats_diff)
 export(mkn_fstats_max)
+export(mkn_fstats_range)
 export(mkn_scores_glmnet_coef)
 importFrom(MASS,Null)
 importFrom(Matrix,chol)

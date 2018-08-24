@@ -3,12 +3,12 @@
 \name{fstats}
 \alias{fstats}
 \alias{mkn_fstats_max}
-\alias{mkn_fstats_diff}
+\alias{mkn_fstats_range}
 \title{Calculate Filtering Statistics}
 \usage{
 mkn_fstats_max(scores, mask, masked_pvals)
 
-mkn_fstats_diff(scores, mask, masked_pvals)
+mkn_fstats_range(scores, mask, masked_pvals)
 }
 \arguments{
 \item{scores}{matrix with 2 columns. \code{nrow(scores)} should equal to \code{sum(mask)}}
@@ -21,11 +21,11 @@ mkn_fstats_diff(scores, mask, masked_pvals)
 Calculate filtering statistics based on the scores, obtained for the original variables and their winnowed knockoff variables, and masked p-values.
 }
 \details{
-Given a sequence of filtering statistics, one could either sort the hypotheses by them directly or first sort them by masked p-values and then sort the hypotheses with the same masked p-values by the filtering statistics. The latter takes advantage of higher accuracy from multiple knockoffs. For \code{mkn_fstats_diff} and \code{mkn_fstats_max}, the filtering statistics are simply modified by substracting \code{masked_pvals * M} from them for some large enough M.
+Given a sequence of filtering statistics, one could either sort the hypotheses by them directly or first sort them by masked p-values and then sort the hypotheses with the same masked p-values by the filtering statistics. The latter takes advantage of higher accuracy from multiple knockoffs. For \code{mkn_fstats_range} and \code{mkn_fstats_max}, the filtering statistics are simply modified by substracting \code{masked_pvals * M} from them for some large enough M.
 
 The following a list of available functions:
 \itemize{
-\item{\code{mkn_fstats_diff}} {Calculate the absolute difference of two scores, with the above modification if \code{masked_pvals} is not \code{NULL}}
+\item{\code{mkn_fstats_range}} {Calculate the absolute difference of two scores, with the above modification if \code{masked_pvals} is not \code{NULL}}
 \item{\code{mkn_fstats_max}} {Calculate the maximum score, with the above modification if \code{masked_pvals} is not \code{NULL}}
 }
 }

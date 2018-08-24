@@ -39,7 +39,7 @@ block_t <- function(Z, n, p, k){
 #' @export
 mkn_create_gaussian <- function(X, k, mu, Sigma,
                                 method = c("asdp", "sdp", "equi"),
-                                s_const = 1,
+                                s_const = (k + 1) / k,
                                 diag_s = NULL,
                                 ...){
     if (!is.matrix(X)){
