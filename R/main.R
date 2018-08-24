@@ -6,14 +6,14 @@ get_scores_info <- function(scores){
     m <- ncol(scores)
     if (m %% 2 == 0){
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = "random")
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = "random")
             pval <- rk[1] / m
             if (rk[1] == m){
                 reflectid <- 0

@@ -46,13 +46,14 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
         X <- as.matrix(X)
     }
     
-    if (k == 1){
-        knockoff::create.gaussian(X, mu, Sigma, method, diag_s)
-    }
+    ## if (k == 1){
+    ##     knockoff::create.gaussian(X, mu, Sigma, method, diag_s)
+    ## }
 
-    if (s_const > (k + 1) / k - 1e-9){
-        stop("The multiplier of S cannot exceed (k + 1) / k.")
+    if (s_const > (k + 1)){
+        warning("The multiplier of S cannot exceed (k + 1) / k. Replace it by (k + 1) / k.")
     }
+    s_const <- min(s_const, (k + 1) / k - 1e-6)
 
     method <- match.arg(method)[1]
     if ((nrow(Sigma) <= 500) && method == "asdp") {
@@ -68,10 +69,8 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
 
     n <- nrow(X)
     p <- nrow(Sigma)
-    mu_cond <- t(
-        solve(k * Sigma - (k - 1) * diag(diag_s)) %*%
-        (Sigma - diag(diag_s)) %*% (t(X) - mu) + mu
-        )
+    Sigma_inv_S <- solve(Sigma, diag(diag_s))
+    mu_cond <- X - sweep(X, 2, mu, "-") %*% Sigma_inv_S
 
     #### Naive approach
     ## time.start <- Sys.time()
@@ -85,7 +84,7 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
     sqrtS <- sqrt(diag_s)
     if (s_const <= 1){
         ## ~ 28x faster than the naive approach with (n, p, k) = (1000, 500, 10)
-        off_diag <- diag(diag_s) - diag_s * (solve(Sigma, diag(diag_s)))
+        off_diag <- diag(diag_s) - diag_s * Sigma_inv_S
         addon <- matrix(stats::rnorm(n * p), nrow = n) %*%
             Matrix::chol(off_diag) + mu_cond
         Xk <- rep(sqrtS, k) * matrix(stats::rnorm(n * p * k), ncol = n)
