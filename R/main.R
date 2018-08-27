@@ -71,7 +71,7 @@ get_nreveals <- function(nmasks, ninter){
 #' @param offset 0/1. The correction factor in the formula of estimated FDP. The values 1 yields Knockoffs+ procedure that is guaranteed to control FDR. The value 0 yields a more liberal procedure that is proved to control modified-FDR = E[V / (R + 1 / alpha)] where alpha is the target FDR level
 #' @param verbose logical. Indicate whether the progress is printed to the console
 #' @param return_data logical. Indicate whether to output the data in the form of \code{list(X = , Xk = , y = )} where Xk is the knockoff variables before winnowing.
-#' 
+p#' 
 #' @return
 #' \item{qvals}{vector. The i-th element gives the minimum target FDR level for which the i-th hypothesis can be rejected. The value Inf refers to the case that the i-th hypothesis is never rejected}
 #' \item{data}{list. NULL if return_date = FALSE. }
