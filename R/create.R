@@ -46,9 +46,9 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
         X <- as.matrix(X)
     }
     
-    ## if (k == 1){
-    ##     knockoff::create.gaussian(X, mu, Sigma, method, diag_s)
-    ## }
+    if (k == 1){
+        return(knockoff::create.gaussian(X, mu, Sigma, method, diag_s))
+    }
 
     if (s_const > (k + 1)){
         warning("The multiplier of S cannot exceed (k + 1) / k. Replace it by (k + 1) / k.")
@@ -83,7 +83,7 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
 
     sqrtS <- sqrt(diag_s)
     if (s_const <= 1){
-        ## ~ 28x faster than the naive approach with (n, p, k) = (1000, 500, 10)
+        ## ~ 28x faster than the naive approach with (n, p, k) = (10p00, 500, 10)
         off_diag <- diag(diag_s) - diag_s * Sigma_inv_S
         addon <- matrix(stats::rnorm(n * p), nrow = n) %*%
             Matrix::chol(off_diag) + mu_cond

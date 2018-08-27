@@ -21,10 +21,11 @@ NULL
 #'
 #' @export
 mkn_fstats_max <- function(scores, mask, masked_pvals){
-    fstats <- apply(abs(scores$mask), 1, max)
+    fstats <- apply(scores$mask, 1, max)
     if (!is.null(masked_pvals) && any(masked_pvals > 0)){
-        fstats <- fstats - masked_pvals[mask] * max(fstats) /
-            max(min(masked_pvals[masked_pvals > 0]), 1e-4)
+        incr <- diff(sort(fstats))
+        incr <- max(min(incr[incr > 0]), 1e-15)
+        fstats <- fstats - masked_pvals[mask] * incr 
     }
     return(fstats)
 }
@@ -33,11 +34,13 @@ mkn_fstats_max <- function(scores, mask, masked_pvals){
 #'
 #' @export
 mkn_fstats_range <- function(scores, mask, masked_pvals){
-    fstats <- apply(abs(scores$mask), 1, max) -
-        apply(abs(scores$mask), 1, min)
+    fstats <- apply(scores$mask, 1, function(x){
+        max(x) - min(x)
+    })
     if (!is.null(masked_pvals) && any(masked_pvals > 0)){
-        fstats <- fstats - masked_pvals[mask] * max(fstats) /
-            max(min(masked_pvals[masked_pvals > 0]), 1e-4)
+        incr <- diff(sort(fstats))
+        incr <- max(min(incr[incr > 0]), 1e-15)
+        fstats <- fstats - masked_pvals[mask] * incr 
     }
     return(fstats)    
 }

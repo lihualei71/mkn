@@ -25,7 +25,7 @@ Given a sequence of filtering statistics, one could either sort the hypotheses b
 
 The following a list of available functions:
 \itemize{
-\item{\code{mkn_fstats_range}} {Calculate the absolute difference of two scores, with the above modification if \code{masked_pvals} is not \code{NULL}}
+\item{\code{mkn_fstats_range}} {Calculate the difference between the maximum and the minimum absolute scores, with the above modification if \code{masked_pvals} is not \code{NULL}}
 \item{\code{mkn_fstats_max}} {Calculate the maximum score, with the above modification if \code{masked_pvals} is not \code{NULL}}
 }
 }

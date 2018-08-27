@@ -45,7 +45,7 @@ mkn_scores_glmnet_coef <- function(X, Xk, y,
                                    subset = rep(TRUE, ncol(X)),
                                    use_LR = FALSE,
                                    nlambda = 100,
-                                   lambda.min.ratio = 0.0001,
+                                   lambda.min.ratio = 0.0005,
                                    cvtype = "lambda.min",
                                    family = "gaussian",
                                    cores = 1,
@@ -67,6 +67,7 @@ mkn_scores_glmnet_coef <- function(X, Xk, y,
     }
     inds <- rep(subset, k)
     Xfull <- cbind(X, Xk[, inds])
+    Xfull <- scale(Xfull)[, ]
     if (family == "gaussian") {
         lambda_max <- max(abs(t(Xfull) %*% y))/n
         lambda_min <- lambda_max * lambda.min.ratio
@@ -77,7 +78,11 @@ mkn_scores_glmnet_coef <- function(X, Xk, y,
         lambda <- NULL
     }
     fit <- glmnet::cv.glmnet(Xfull, y,
+                             lambda = lambda,
                              family = family,
+                             standardize = FALSE,
+                             standardize.response = FALSE,
+                             intercept = TRUE,
                              parallel = parallel, ...)
 
     lambda <- fit$lambda.min

@@ -5,7 +5,7 @@
 \title{Calculate The Cross-Validated Glmnet Coefficients As Scores}
 \usage{
 mkn_scores_glmnet_coef(X, Xk, y, subset = rep(TRUE, ncol(X)),
-  use_LR = FALSE, nlambda = 100, lambda.min.ratio = 1e-04,
+  use_LR = FALSE, nlambda = 100, lambda.min.ratio = 5e-04,
   cvtype = "lambda.min", family = "gaussian", cores = 1, ...)
 }
 \arguments{

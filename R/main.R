@@ -6,14 +6,14 @@ get_scores_info <- function(scores){
     m <- ncol(scores)
     if (m %% 2 == 0){
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = "random")
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = "random")
             pval <- rk[1] / m
             if (rk[1] == m){
                 reflectid <- 0
@@ -147,6 +147,7 @@ mkn_filter <- function(X, y, k,
     if (verbose){
         cat("Generating knockoff variables\n")
     }
+
     Xk <- do.call(knockoffs_fun, knockoffs_args)
     if (verbose){
         cat("Knockoff variables generated\n")
@@ -169,7 +170,7 @@ mkn_filter <- function(X, y, k,
     info <- get_scores_info(scores$mask)
     pvals <- info[, 1]
     winnow_inds <- info[, 2]
-    if (winnow){
+    if (winnow && k > 1){
         knockoff_inds <- (1:p) + pmax(winnow_inds - 1, 0) * p
         scores_args_root$Xk <- Xk[, knockoff_inds]
     }
