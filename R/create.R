@@ -46,10 +46,6 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
         X <- as.matrix(X)
     }
     
-    if (k == 1){
-        return(knockoff::create.gaussian(X, mu, Sigma, method, diag_s))
-    }
-
     if (s_const > (k + 1)){
         warning("The multiplier of S cannot exceed (k + 1) / k. Replace it by (k + 1) / k.")
     }
@@ -67,6 +63,10 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
     }
     diag_s <- diag_s * s_const
 
+    ## if (k == 1){
+    ##     return(knockoff::create.gaussian(X, mu, Sigma, method, diag_s))
+    ## }
+    
     n <- nrow(X)
     p <- nrow(Sigma)
     Sigma_inv_S <- solve(Sigma, diag(diag_s))

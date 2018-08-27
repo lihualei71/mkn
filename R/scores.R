@@ -43,7 +43,7 @@
 #' @export
 mkn_scores_glmnet_coef <- function(X, Xk, y,
                                    subset = rep(TRUE, ncol(X)),
-                                   use_LR = FALSE,
+                                   use_LR = TRUE,
                                    nlambda = 100,
                                    lambda.min.ratio = 0.0005,
                                    cvtype = "lambda.min",
