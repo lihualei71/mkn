@@ -13,6 +13,8 @@ mkn_scores_glmnet_coef(X, y, knockoffs, subset = rep(TRUE, ncol(X)),
 
 \item{y}{vector. Response/Outcome}
 
+\item{knockoffs}{object of class "mkn_knockoffs". See Details}
+
 \item{subset}{logical vector. Indicate whether the knockoffs of each variable are included}
 
 \item{use_LR}{logical. Indicate whether the Lagrangian multipliers are incorporated}
@@ -28,8 +30,6 @@ mkn_scores_glmnet_coef(X, y, knockoffs, subset = rep(TRUE, ncol(X)),
 \item{cores}{positive integer. Number of cores to fit the model. If \code{cores > 1}, the packages \code{doMC}, \code{parallel} need to be installed}
 
 \item{...}{other arguments passed into \code{\link[glmnet]{cv.glmnet}}}
-
-\item{Xk}{knockoffs matrix. \code{ncol(Xk)} must be divisible by \code{ncol(X)}}
 }
 \value{
 \item{mask}{a matrix of size (s, k + 1) where \code{s = sum(subset)}. The scores corresponding to the variables in \code{subset} and their knockoffs}

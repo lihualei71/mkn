@@ -4,8 +4,8 @@
 \alias{mkn_create_gaussian}
 \title{Generator of Multiple Gaussian Model-X Knockoffs}
 \usage{
-mkn_create_gaussian(X, k, mu, Sigma, method = c("asdp", "sdp", "equi"),
-  s_const = (k + 1)/k, diag_s = NULL, ...)
+mkn_create_gaussian(X, k, mu, Sigma, method = c("sdp", "equi"),
+  diag_s = NULL, ...)
 }
 \arguments{
 \item{X}{covariate matrix}
@@ -18,8 +18,6 @@ mkn_create_gaussian(X, k, mu, Sigma, method = c("asdp", "sdp", "equi"),
 
 \item{method}{string. Should be "asdp" (approximate SDP) or "sdp" or "equi". See \code{\link[knockoff]{create.solve_asdp}}, \code{\link[knockoff]{create.solve_sdp}} and \code{\link[knockoff]{create.solve_equi}} for details}
 
-\item{s_const}{positive real. Should be smaller than (k + 1) / k. See Details}
-
 \item{diag_s}{an optional vector of the diagonal elements of S}
 
 \item{...}{other arguments passed into \code{\link[knockoff]{create.solve_asdp}}, \code{\link[knockoff]{create.solve_sdp}} or \code{\link[knockoff]{create.solve_equi}}}
@@ -29,9 +27,6 @@ a matrix of size (n, pk) consisting all knockoff variables
 }
 \description{
 \code{mkn_create_gaussian} generates \code{k} gaussian model-X knockoffs Xk such that the joint distribution of each row of (X, Xk) is multivariate-gaussian with mean \code{rep(mu, k)} and variance being a matrix with diagonal blocks \code{Sigma} and off-diagonal blocks Sigma-S where S is a diagonal matrix that satisfies S <= (k+1) / k Sigma.
-}
-\details{
-\code{mkn_create_gaussian} first calculates the diagonal matrix S that is smaller than \code{Sigma}, without a correction factor. Then it modifies S by multiplying it by \code{s_const}, which should be smaller than (k + 1) / k by definition.
 }
 \examples{
 \donttest{

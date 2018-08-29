@@ -26,4 +26,4 @@ Imports:
     MASS,
     Matrix,
     methods,
-    RSpectra
+    Rdsdp
