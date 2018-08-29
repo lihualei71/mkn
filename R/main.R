@@ -117,8 +117,8 @@ mkn_filter <- function(X, y, k,
         stop("knockoffs_fun should be a valid function with at least X as input")
     }
     if (!is.function(scores_fun) ||
-        any(!c("X", "Xk", "y", "subset") %in% methods::formalArgs(scores_fun))){
-        stop("scores_fun should be a valid function with at least X, Xk, y and subset as inputs")
+        any(!c("X", "y", "knockoffs", "subset") %in% methods::formalArgs(scores_fun))){
+        stop("scores_fun should be a valid function with at least X, y, knockoffs and subset as inputs")
     }
     if (!is.function(fstats_fun) ||
         any(!c("scores", "mask", "masked_pvals") %in% methods::formalArgs(fstats_fun))){
@@ -148,7 +148,7 @@ mkn_filter <- function(X, y, k,
         cat("Generating knockoff variables\n")
     }
 
-    Xk <- do.call(knockoffs_fun, knockoffs_args)
+    knockoffs <- do.call(knockoffs_fun, knockoffs_args)
     if (verbose){
         cat("Knockoff variables generated\n")
         cat("\n")
@@ -156,7 +156,9 @@ mkn_filter <- function(X, y, k,
 
     mask <- rep(TRUE, p)
 
-    scores_args_root <- c(list(X = X, Xk = Xk, y = y), scores_args)
+    scores_args_root <- c(list(X = X, y = y,
+                               knockoffs = knockoffs),
+                          scores_args)
     scores_args <- c(list(subset = mask), scores_args_root)
     if (verbose){
         cat("Fitting the initial scores\n")
@@ -172,7 +174,10 @@ mkn_filter <- function(X, y, k,
     winnow_inds <- info[, 2]
     if (winnow && k > 1){
         knockoff_inds <- (1:p) + pmax(winnow_inds - 1, 0) * p
-        scores_args_root$Xk <- Xk[, knockoff_inds]
+        if ("Xk" %in% names(knockoffs)){
+            scores_args_root$knockoffs$Xk <- knockoffs$Xk[, knockoff_inds]
+            scores_args_root$knockoffs$k <- 1
+        }
     }
 
     A <- sum(pvals > 0.5)
@@ -253,7 +258,7 @@ mkn_filter <- function(X, y, k,
     qvals[reveal_order] <- cummin(fdp_list[1:p])
     qvals[pvals > 0.5] <- Inf
     if (return_data){
-        data <- list(X = X, Xk = Xk, y = y)
+        data <- list(X = X, y = y, knockoffs = knockoffs)
     } else {
         data <- NULL
     }

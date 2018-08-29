@@ -63,10 +63,6 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
     }
     diag_s <- diag_s * s_const
 
-    ## if (k == 1){
-    ##     return(knockoff::create.gaussian(X, mu, Sigma, method, diag_s))
-    ## }
-    
     n <- nrow(X)
     p <- nrow(Sigma)
     Sigma_inv_S <- solve(Sigma, diag(diag_s))
@@ -88,7 +84,7 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
         addon <- matrix(stats::rnorm(n * p), nrow = n) %*%
             Matrix::chol(off_diag) + mu_cond
         Xk <- rep(sqrtS, k) * matrix(stats::rnorm(n * p * k), ncol = n)
-        return(t(Xk) + as.numeric(addon))
+        Xk <- t(Xk) + as.numeric(addon)
     } else {
         ## ~ 14x faster than the naive approach with (n, p, k) = (1000, 500, 10)
         p <- length(diag_s)
@@ -109,6 +105,10 @@ mkn_create_gaussian <- function(X, k, mu, Sigma,
         ## Step 6
         Xk <- matrix(Xk, nrow = p * k)
         ## Step 7
-        return(t(Xk) + as.numeric(mu_cond))
+        Xk <- t(Xk) + as.numeric(mu_cond)
     }
-p}
+
+    structure(list(Xk = Xk, k = k,
+                   Sigma = Sigma, diag_s = diag_s),
+              class = "mkn_knockoffs")
+}

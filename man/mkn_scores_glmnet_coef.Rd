@@ -4,14 +4,12 @@
 \alias{mkn_scores_glmnet_coef}
 \title{Calculate The Cross-Validated Glmnet Coefficients As Scores}
 \usage{
-mkn_scores_glmnet_coef(X, Xk, y, subset = rep(TRUE, ncol(X)),
-  use_LR = FALSE, nlambda = 100, lambda.min.ratio = 5e-04,
+mkn_scores_glmnet_coef(X, y, knockoffs, subset = rep(TRUE, ncol(X)),
+  use_LR = TRUE, nlambda = 100, lambda.min.ratio = 5e-04,
   cvtype = "lambda.min", family = "gaussian", cores = 1, ...)
 }
 \arguments{
 \item{X}{covariate matrix}
-
-\item{Xk}{knockoffs matrix. \code{ncol(Xk)} must be divisible by \code{ncol(X)}}
 
 \item{y}{vector. Response/Outcome}
 
@@ -30,6 +28,8 @@ mkn_scores_glmnet_coef(X, Xk, y, subset = rep(TRUE, ncol(X)),
 \item{cores}{positive integer. Number of cores to fit the model. If \code{cores > 1}, the packages \code{doMC}, \code{parallel} need to be installed}
 
 \item{...}{other arguments passed into \code{\link[glmnet]{cv.glmnet}}}
+
+\item{Xk}{knockoffs matrix. \code{ncol(Xk)} must be divisible by \code{ncol(X)}}
 }
 \value{
 \item{mask}{a matrix of size (s, k + 1) where \code{s = sum(subset)}. The scores corresponding to the variables in \code{subset} and their knockoffs}
