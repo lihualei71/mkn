@@ -6,14 +6,14 @@ get_scores_info <- function(scores){
     m <- ncol(scores)
     if (m %% 2 == 0){
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "random")
+            rk <- rank(-x, ties.method = "last")
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "random")
+            rk <- rank(-x, ties.method = "last")
             pval <- rk[1] / m
             if (rk[1] == m){
                 reflectid <- 0
@@ -101,7 +101,7 @@ get_nreveals <- function(nmasks, ninter){
 mkn_filter <- function(X, y, k,
                        knockoffs_fun = mkn_create_gaussian,
                        scores_fun = mkn_scores_glmnet_coef,
-                       fstats_fun = mkn_fstats_range,
+                       fstats_fun = mkn_fstats_max,
                        knockoffs_args = list(),
                        scores_args = list(),
                        fstats_args = list(),

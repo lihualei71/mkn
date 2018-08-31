@@ -22,7 +22,6 @@ Depends:
     stats,
     utils    
 Imports:
-    knockoff,
     MASS,
     Matrix,
     methods,
