@@ -11,36 +11,33 @@
 #' }
 #'
 #' @param scores matrix with 2 columns. \code{nrow(scores)} should equal to \code{sum(mask)}
-#' @param mask logical vector. Indicate whether each hypothesis is masked
-#' @param masked_pvals vector or NULL. Masked p-values, i.e. min\{p, 1 - p\}
-#' 
 #' @name fstats
 NULL
 
 #' @rdname fstats
 #'
 #' @export
-mkn_fstats_max <- function(scores, mask, masked_pvals){
-    fstats <- apply(scores$mask, 1, max)
-    if (!is.null(masked_pvals) && any(masked_pvals > 0)){
-        incr <- diff(sort(fstats))
-        incr <- max(min(incr[incr > 0]), 1e-15)
-        fstats <- fstats - masked_pvals[mask] * incr 
+mkn_fstats_max <- function(scores){
+    if (class(scores) != "mkn_scores"){
+        stop("The input scores must be of class mkn_scores")
     }
-    return(fstats)
+    
+    fstats <- apply(scores$mask, 1, max)
+
+    structure(fstats, class = "mkn_fstats")
 }
 
 #' @rdname fstats
 #'
 #' @export
-mkn_fstats_range <- function(scores, mask, masked_pvals){
+mkn_fstats_range <- function(scores){
+    if (class(scores) != "mkn_scores"){
+        stop("The input scores must be of class mkn_scores")
+    }
+    
     fstats <- apply(scores$mask, 1, function(x){
         max(x) - min(x)
     })
-    if (!is.null(masked_pvals) && any(masked_pvals > 0)){
-        incr <- diff(sort(fstats))
-        incr <- max(min(incr[incr > 0]), 1e-15)
-        fstats <- fstats - masked_pvals[mask] * incr 
-    }
-    return(fstats)    
+
+    structure(fstats, class = "mkn_fstats")    
 }

@@ -6,16 +6,12 @@
 \alias{mkn_fstats_range}
 \title{Calculate Filtering Statistics}
 \usage{
-mkn_fstats_max(scores, mask, masked_pvals)
+mkn_fstats_max(scores)
 
-mkn_fstats_range(scores, mask, masked_pvals)
+mkn_fstats_range(scores)
 }
 \arguments{
 \item{scores}{matrix with 2 columns. \code{nrow(scores)} should equal to \code{sum(mask)}}
-
-\item{mask}{logical vector. Indicate whether each hypothesis is masked}
-
-\item{masked_pvals}{vector or NULL. Masked p-values, i.e. min\{p, 1 - p\}}
 }
 \description{
 Calculate filtering statistics based on the scores, obtained for the original variables and their winnowed knockoff variables, and masked p-values.

@@ -4,4 +4,5 @@
 #' @importFrom MASS Null
 #' @importFrom methods formalArgs
 #' @importFrom Rdsdp dsdp
+#' @importFrom mgcv gam
 NULL

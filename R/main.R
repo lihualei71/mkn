@@ -2,18 +2,19 @@ fdp_hat <- function(A, R, offset){
     (offset + A) / pmax(1, R)
 }
 
-get_scores_info <- function(scores){
+get_scores_info <- function(scores, randomized){
     m <- ncol(scores)
+    ties.method <- ifelse(randomized, "random", "last")
     if (m %% 2 == 0){
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = ties.method)
             pval <- (rk[1] - 1) / (m - 1)
             reflectid <- which(rk == m + 1 - rk[1]) - 1
             c(pval, reflectid)
         })
     } else {
         info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = "last")
+            rk <- rank(-x, ties.method = ties.method)
             pval <- rk[1] / m
             if (rk[1] == m){
                 reflectid <- 0
@@ -42,29 +43,29 @@ get_nreveals <- function(nmasks, ninter){
 #'  \item{Step 1: } generate \code{k} knockoffs for each variable in \code{X} by \code{knockoffs_fun};
 #'  \item{Step 2: } calculate the initial scores for all variables and their knockoffs by \code{scores_fun} and then calculate the p-values, as the normalized rank;
 #'  \item{Step 3: } winnow the original knockoff variables if \code{winnow = TRUE} and maintain one knockoff for each variable;
-#'  \item{Step 4: } at each time when a certain number of hypotheses are revealed, re-calculate the scores for each variable by \code{scores_fun} and calculate the filtering statistics by \code{fstats_fun}.
-#'  \item{Step 5: } reveal the hypotheses based on the filtering statistics, and the masked p-values, i.e. min\{p, 1 - p\}, if \code{use_masked_pvals = TRUE}.
+#'  \item{Step 4: } at each time when a certain number of hypotheses are revealed, re-calculate the scores for each variable by \code{scores_fun}, calculate the filtering statistics by \code{fstats_fun} and (optionally) polished the filtering statistics using the masked p-values;
+#'  \item{Step 5: } reveal the hypotheses based on the filtering statistics, and the masked p-values, i.e. min\{p, 1 - p\}.
 #' }
 #' 
-#' \code{knockoffs_fun}, \code{scores_fun}, \code{fstats_fun} should be function objects:
+#' \code{knockoffs_fun}, \code{scores_fun}, \code{fstats_fun} should be function objects, and \code{pofstats_fun} could be either NULL or a function object:
 #' \itemize{
-#'  \item{\code{knockoffs_fun}} {should take at least \code{X} as the input and output a matrix of size (n, pk) where (n, p) = dim(X). By default, \code{knockoffs_fun = mkn_create_gaussian}, which will generate model-X gaussian knockoffs in which case \code{mu} and \code{Sigma} should appear in \code{knockoffs_args}. See \code{\link{mkn_create_gaussian}} for other arguments.}
-#'  \item{\code{scores_fun}} {should take at least four inputs: \code{X}, \code{Xk} (for the output of \code{knockoffs_fun}), \code{y} and \code{subset} as a logical vector of size p which indicates the set of masked hypotheses. Given the input, \code{scores_fun} will calculate the scores based on all columns in \code{X} and the columns that correspond to \code{subset} in \code{Xk}. The output should be in the form of \code{list(mask = , unmask = )} where \code{mask} is a matrix of size (s, k + 1) (\code{s = sum(subset)}) that gives the score for each variable and its knockoff variables in \code{subset}, and \code{unmask} is a vector of size (p - s) that gives the score for each variable in the complement of \code{subset}. By default, \code{scores_fun = mkn_scores_glmnet_coef}. See \code{\link{mkn_scores_glmnet_coef}} for details.}
-#' \item{\code{fstats_fun}} {should take at least three inputs: \code{score}, a matrix that corresponds to the original variables and their knockoff variables, \code{mask}, a logical vector that indicates whether each hypothesis is masked, and \code{masked_pvals}, a numeric vector that gives the masked p-values (min\{p, 1 - p\}). It should output a vector of scores by combining the columns of \code{score} in a symmetric way. By default, \code{fstats_fun = mkn_fstats_range} which will output the difference of the maximum and the minimum scores. If \code{fstats_fun = mkn_fstats_max}, it will output the maximum scores}
+#'  \item{\code{knockoffs_fun}} {should take at least \code{X} as the input and output an object of "mkn_knockoffs" class, which includes all necessary inputs for \code{scores_fun}. By default, \code{knockoffs_fun = mkn_create_gaussian}, which will generate model-X gaussian knockoffs in which case \code{mu} and \code{Sigma} should appear in \code{knockoffs_args}. See \code{\link{mkn_create_gaussian}} for other arguments and outputs.}
+#'  \item{\code{scores_fun}} {should take at least four inputs: \code{X}, \code{y}, \code{knockoffs} as an object of class "mkn_knockoffs", and \code{subset} as a logical vector of size p which indicates the set of masked hypotheses. Given the input, \code{scores_fun} will calculate the scores based on all columns in \code{X} and the columns that correspond to \code{subset} in the knockoff variables. The output should be of class "mkn_scores" and in the form of \code{list(mask = , unmask = )} where \code{mask} is a matrix of size (s, k + 1) (\code{s = sum(subset)}) that gives the score for each variable and its knockoff variables in \code{subset}, and \code{unmask} is a vector of size (p - s) that gives the score for each variable in the complement of \code{subset}. By default, \code{scores_fun = mkn_scores_glmnet_coef}. See \code{\link{mkn_scores_glmnet_coef}} for details.}
+#' \item{\code{fstats_fun}} {should take at least \code{scores}, of class "mkn_scores", as input. It should output an object of class "mkn_fstats" as a vector of scores that summarize the columns of \code{scores} in a symmetric way. By default, \code{fstats_fun = mkn_fstats_range} which will output the difference of the maximum and the minimum scores. If \code{fstats_fun = mkn_fstats_max}, it will output the maximum scores}
 #' }
 #'
-#' If \code{use_masked_pvals = TRUE}, by default, the hypotheses will be first sorted by masked p-values from the largest (least promising) to the smallest (least promising) and then sorted by the filtering statistics from the smallest. If \code{use_masked_pvals = TRUE}, the hypotheses will only be sorted by the filter statistics.
-#' 
 #' @param X matrix or data.frame. Should be compatible to \code{knockoffs_fun} and \code{scores_fun}
 #' @param y vector. Response/Outcome
 #' @param k positive integer. The number of knockoffs
 #' @param knockoffs_fun function to generate knockoffs. See Details
 #' @param scores_fun function to calculate scores. See Details
 #' @param fstats_fun function to calculate filtering statistics. See Details
+#' @param pofstats_fun function to polish filtering statistics. See Details
 #' @param knockoffs_args list. Extra arguments passed into knockoffs_fun
 #' @param scores_args list. Extra arguments passed into scores_fun
 #' @param fstats_args list. Extra arguments passed into fstats_fun
-#' @param use_masked_pvals logical. Indicate whether the masked p-values are incorporated into the ranking. See Details
+#' @param pofstats_args list. Extra arguments passed into pofstats_fun
+#' @param randomized logical. Indicate whether the p-values are randomized when scores have ties.
 #' @param winnow logical. Indicate whether the knockoffs are winnowed after initial score calculation
 #' @param inter logical. Indicate whether interactive re-fitting is performed 
 #' @param ninter positive integer. Number of rounds of interactive re-fitting. See Details
@@ -93,6 +94,7 @@ get_nreveals <- function(nmasks, ninter){
 #' k <- 10
 #' set.seed(1)
 #' res <- mkn_filter(X, y, 10, knockoffs_args = knockoffs_args)
+
 #'
 #' ## Get the set of rejections when alpha = 0.1
 #' which(res$qvals <= 0.1)
@@ -102,10 +104,12 @@ mkn_filter <- function(X, y, k,
                        knockoffs_fun = mkn_create_gaussian,
                        scores_fun = mkn_scores_glmnet_coef,
                        fstats_fun = mkn_fstats_max,
+                       pofstats_fun = NULL,
                        knockoffs_args = list(),
                        scores_args = list(),
                        fstats_args = list(),
-                       use_masked_pvals = TRUE,
+                       pofstats_args = list(),
+                       randomized = FALSE,
                        winnow = TRUE,
                        inter = TRUE,
                        ninter = 10,
@@ -114,15 +118,21 @@ mkn_filter <- function(X, y, k,
                        return_data = TRUE){
     if (!is.function(knockoffs_fun) ||
         !"X" %in% methods::formalArgs(knockoffs_fun)){
-        stop("knockoffs_fun should be a valid function with at least X as input")
+        stop("knockoffs_fun should be a valid function with at least X as the input")
     }
     if (!is.function(scores_fun) ||
         any(!c("X", "y", "knockoffs", "subset") %in% methods::formalArgs(scores_fun))){
         stop("scores_fun should be a valid function with at least X, y, knockoffs and subset as inputs")
     }
     if (!is.function(fstats_fun) ||
-        any(!c("scores", "mask", "masked_pvals") %in% methods::formalArgs(fstats_fun))){
-        stop("fstats_fun should be a valid function")
+        any(!c("scores") %in% methods::formalArgs(fstats_fun))){
+        stop("fstats_fun should be a valid function with at least scores as the input")
+    }
+    if (!is.null(pofstats_fun)){
+        if(!is.function(pofstats_fun) ||
+           any(!c("fstats", "mask", "pvals") %in% methods::formalArgs(pofstats_fun))){
+            stop("pofstats_fun should be a valid function with at least fstats, mask and pvals as inputs")
+        }
     }
     
     if (!offset %in% c(0, 1)){
@@ -133,6 +143,7 @@ mkn_filter <- function(X, y, k,
     }
     if (k == 1){
         winnow <- FALSE
+        pofstats_fun <- NULL
     }
     n <- nrow(X)
     if (length(y) != n){
@@ -168,8 +179,8 @@ mkn_filter <- function(X, y, k,
         cat("Initial scores obtained\n")
         cat("\n")
     }
-
-    info <- get_scores_info(scores$mask)
+    
+    info <- get_scores_info(scores$mask, randomized)
     pvals <- info[, 1]
     winnow_inds <- info[, 2]
     if (winnow && k > 1){
@@ -201,9 +212,6 @@ mkn_filter <- function(X, y, k,
     if (nmasks > 0){
         nreveal_list <- get_nreveals(nmasks, ninter)
     }
-    if (use_masked_pvals){
-        masked_pvals <- pmin(pvals, 1 - pvals)
-    }
 
     if (verbose && nmasks > 0){
         cat("Interactive re-fitting starts:\n")
@@ -211,10 +219,9 @@ mkn_filter <- function(X, y, k,
                                     style = 3, width = 50)
     }
 
-    if (use_masked_pvals){
-        fstats_args_root <- c(list(masked_pvals = masked_pvals), fstats_args)
-    } else {
-        fstats_args_root <- c(list(masked_pvals = NULL), fstats_args)
+    fstats_args_root <- fstats_args
+    if (!is.null(pofstats_fun)){
+        pofstats_args_root <- pofstats_args        
     }
 
     for (i in 1:ninter){
@@ -230,14 +237,17 @@ mkn_filter <- function(X, y, k,
         nreveal <- nreveal_list[i]
         scores_args <- c(list(subset = mask), scores_args_root)
         scores <- do.call(scores_fun, scores_args)
-        ## if (!winnow && k > 1){
-        ##     knockoff_inds <- cbind(1:nmasks, winnow_inds[mask])
-        ##     scores$mask <- cbind(scores$mask[, 1], scores$mask[knockoff_inds])
-        ## }
-        fstats_args <- c(list(scores = scores, mask = mask), fstats_args_root)
+
+        fstats_args <- c(list(scores = scores), fstats_args_root)
         fstats <- do.call(fstats_fun, fstats_args)
 
-        rm_inds <- which(mask)[order(fstats)[1:nreveal]]
+        if (!is.null(pofstats_fun)){
+            pofstats_args <- c(list(fstats = fstats, mask = mask, pvals = pvals), pofstats_args_root)
+            fstats <- do.call(pofstats_fun, pofstats_args)
+        }
+
+        fstats_order <- order(rank(fstats, ties.method = "average"))
+        rm_inds <- which(mask)[fstats_order[1:nreveal]]
 
         Adecre <- cumsum(pvals[rm_inds] > 0.5)
         Rdecre <- cumsum(pvals[rm_inds] < 0.5)

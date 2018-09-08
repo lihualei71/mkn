@@ -115,6 +115,10 @@ mkn_scores_pols_coef <- function(X, y, knockoffs,
                                  subset = rep(TRUE, ncol(X)),
                                  lambda = NULL,
                                  kappa_thresh = 200){
+    if (class(knockoffs) != "mkn_knockoffs"){
+        stop("The input knockoffs must be of class mkn_knockoffs")
+    }
+    
     n <- nrow(X)
     p <- ncol(X)
     k <- knockoffs$k
@@ -144,8 +148,7 @@ mkn_scores_pols_coef <- function(X, y, knockoffs,
     }
 
     diag_s <- knockoffs$diag_s[subset]
-    Omega <- knockoffs$Sigma[subset, subset] -
-        diag(diag_s)
+    Omega <- knockoffs$Sigma[subset, subset] - diag(diag_s)
     Omega_eigen <- base::eigen(Omega, symmetric = TRUE)
     D <- Omega_eigen$values
     U <- Omega_eigen$vectors
