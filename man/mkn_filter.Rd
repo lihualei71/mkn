@@ -4,12 +4,12 @@
 \alias{mkn_filter}
 \title{The Multiple-Knockoffs Filter}
 \usage{
-mkn_filter(X, y, k, knockoffs_fun = mkn_create_gaussian,
+mkn_filter(X, y, k, nref = 1, knockoffs_fun = mkn_create_gaussian,
   scores_fun = mkn_scores_glmnet_coef, fstats_fun = mkn_fstats_max,
   pofstats_fun = NULL, knockoffs_args = list(), scores_args = list(),
   fstats_args = list(), pofstats_args = list(), randomized = FALSE,
-  winnow = TRUE, inter = TRUE, ninter = 10, offset = 1,
-  verbose = TRUE, return_data = TRUE)
+  winnow = TRUE, inter = TRUE, offset = 1, verbose = TRUE,
+  return_data = TRUE)
 }
 \arguments{
 \item{X}{matrix or data.frame. Should be compatible to \code{knockoffs_fun} and \code{scores_fun}}
@@ -17,6 +17,8 @@ mkn_filter(X, y, k, knockoffs_fun = mkn_create_gaussian,
 \item{y}{vector. Response/Outcome}
 
 \item{k}{positive integer. The number of knockoffs}
+
+\item{nref}{positive integer. The number of reference points. See Details}
 
 \item{knockoffs_fun}{function to generate knockoffs. See Details}
 
@@ -39,8 +41,6 @@ mkn_filter(X, y, k, knockoffs_fun = mkn_create_gaussian,
 \item{winnow}{logical. Indicate whether the knockoffs are winnowed after initial score calculation}
 
 \item{inter}{logical. Indicate whether interactive re-fitting is performed}
-
-\item{ninter}{positive integer. Number of rounds of interactive re-fitting. See Details}
 
 \item{offset}{0/1. The correction factor in the formula of estimated FDP. The values 1 yields Knockoffs+ procedure that is guaranteed to control FDR. The value 0 yields a more liberal procedure that is proved to control modified-FDR = E[V / (R + 1 / alpha)] where alpha is the target FDR level}
 

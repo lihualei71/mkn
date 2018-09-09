@@ -1,37 +1,18 @@
-fdp_hat <- function(A, R, offset){
-    (offset + A) / pmax(1, R)
+fdp_hat <- function(A, R, offset, nref){
+    (offset + A) / pmax(1, R) / nref
 }
 
-get_scores_info <- function(scores, randomized){
-    m <- ncol(scores)
-    ties.method <- ifelse(randomized, "random", "last")
-    if (m %% 2 == 0){
-        info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = ties.method)
-            pval <- (rk[1] - 1) / (m - 1)
-            reflectid <- which(rk == m + 1 - rk[1]) - 1
-            c(pval, reflectid)
-        })
-    } else {
-        info <- apply(scores, 1, function(x){
-            rk <- rank(-x, ties.method = ties.method)
-            pval <- rk[1] / m
-            if (rk[1] == m){
-                reflectid <- 0
-            } else {
-                reflectid <- which(rk == m - rk[1]) - 1
-            }
-            c(pval, reflectid)
-        })
-    }
-    t(info)
-}
+## get_nreveals <- function(nmasks){
+##     fit_stamps <- c(seq(nmasks, 0, -max(floor(nmasks / ninter), 1))[1:ninter], 0)
+##     diff_stamps <- -diff(fit_stamps)
+##     diff_stamps <- diff_stamps[!is.na(diff_stamps)]
+##     diff_stamps[diff_stamps > 0]
+## }
 
-get_nreveals <- function(nmasks, ninter){
-    fit_stamps <- c(seq(nmasks, 0, -max(floor(nmasks / ninter), 1))[1:ninter], 0)
-    diff_stamps <- -diff(fit_stamps)
-    diff_stamps <- diff_stamps[!is.na(diff_stamps)]
-    diff_stamps[diff_stamps > 0]
+get_nreveals <- function(nmasks){
+    logn <- floor(log(nmasks, 2)) - 1
+    fit_stamps <- c(nmasks, 2^(seq(logn, 0, -1)), 0)
+    -diff(fit_stamps)
 }
 
 #' The Multiple-Knockoffs Filter
@@ -57,6 +38,7 @@ get_nreveals <- function(nmasks, ninter){
 #' @param X matrix or data.frame. Should be compatible to \code{knockoffs_fun} and \code{scores_fun}
 #' @param y vector. Response/Outcome
 #' @param k positive integer. The number of knockoffs
+#' @param nref positive integer. The number of reference points. See Details
 #' @param knockoffs_fun function to generate knockoffs. See Details
 #' @param scores_fun function to calculate scores. See Details
 #' @param fstats_fun function to calculate filtering statistics. See Details
@@ -68,7 +50,6 @@ get_nreveals <- function(nmasks, ninter){
 #' @param randomized logical. Indicate whether the p-values are randomized when scores have ties.
 #' @param winnow logical. Indicate whether the knockoffs are winnowed after initial score calculation
 #' @param inter logical. Indicate whether interactive re-fitting is performed 
-#' @param ninter positive integer. Number of rounds of interactive re-fitting. See Details
 #' @param offset 0/1. The correction factor in the formula of estimated FDP. The values 1 yields Knockoffs+ procedure that is guaranteed to control FDR. The value 0 yields a more liberal procedure that is proved to control modified-FDR = E[V / (R + 1 / alpha)] where alpha is the target FDR level
 #' @param verbose logical. Indicate whether the progress is printed to the console
 #' @param return_data logical. Indicate whether to output the data in the form of \code{list(X = , Xk = , y = )} where Xk is the knockoff variables before winnowing.
@@ -101,6 +82,7 @@ get_nreveals <- function(nmasks, ninter){
 #' }
 #' @export
 mkn_filter <- function(X, y, k,
+                       nref = 1,
                        knockoffs_fun = mkn_create_gaussian,
                        scores_fun = mkn_scores_glmnet_coef,
                        fstats_fun = mkn_fstats_max,
@@ -112,7 +94,6 @@ mkn_filter <- function(X, y, k,
                        randomized = FALSE,
                        winnow = TRUE,
                        inter = TRUE,
-                       ninter = 10,
                        offset = 1,
                        verbose = TRUE,
                        return_data = TRUE){
@@ -133,8 +114,7 @@ mkn_filter <- function(X, y, k,
            any(!c("fstats", "mask", "pvals") %in% methods::formalArgs(pofstats_fun))){
             stop("pofstats_fun should be a valid function with at least fstats, mask and pvals as inputs")
         }
-    }
-    
+    }    
     if (!offset %in% c(0, 1)){
         stop("offset must be either 1 or 0")
     }
@@ -145,12 +125,16 @@ mkn_filter <- function(X, y, k,
         winnow <- FALSE
         pofstats_fun <- NULL
     }
+    if ((k + 1) %% (nref + 1) != 0){
+        warning("It is desirable to set k such that (k + 1) is divisible by (nref + 1)")
+    }
+    if (k < nref){
+        stop("k cannot be smaller than nref")
+    }
+    
     n <- nrow(X)
     if (length(y) != n){
         stop("y should have the same length as nrow(X)")
-    }
-    if (!inter){
-        ninter <- 1
     }
         
     p <- ncol(X)
@@ -179,39 +163,36 @@ mkn_filter <- function(X, y, k,
         cat("Initial scores obtained\n")
         cat("\n")
     }
-    
-    info <- get_scores_info(scores$mask, randomized)
-    pvals <- info[, 1]
-    winnow_inds <- info[, 2]
-    if (winnow && k > 1){
-        knockoff_inds <- (1:p) + pmax(winnow_inds - 1, 0) * p
-        if ("Xk" %in% names(knockoffs)){
-            scores_args_root$knockoffs$Xk <- knockoffs$Xk[, knockoff_inds]
-            scores_args_root$knockoffs$k <- 1
-        }
-    }
 
-    A <- sum(pvals > 0.5)
-    R <- sum(pvals < 0.5)
-    minfdp <- fdp_hat(A, R, offset)
+    winnow_res <- mkn_winnow(knockoffs, scores, winnow, nref,
+                             randomized)
+    pvals <- winnow_res$pvals
+    A <- sum(pvals > 1 / (nref + 1))
+    R <- sum(pvals < 1 / (nref + 1))
+    minfdp <- fdp_hat(A, R, offset, nref)
     fdp_list <- minfdp
-    reveal_order <- vector("integer")
-
-    if (any(winnow_inds == 0)){
-        init_inds <- which(winnow_inds == 0)
+    reveal_order <- vector("integer")    
+    
+    mask <- winnow_res$mask
+    if (any(!mask)){
+        init_inds <- which(!mask)
         init_scores <- scores$mask[init_inds, 1]
         init_inds <- init_inds[order(init_scores)]
         fdp_list <- c(fdp_list,
-                      fdp_hat(A - 1:length(init_inds), R, offset))
+                      fdp_hat(A - 1:length(init_inds), R,
+                               offset, nref))
         A <- A - length(init_inds)
         reveal_order <- c(reveal_order, init_inds)
-        mask[init_inds] <- FALSE
     }
+    scores_args_root$knockoffs <- winnow_res$knockoffs
 
     nmasks <- sum(mask)
-    if (nmasks > 0){
-        nreveal_list <- get_nreveals(nmasks, ninter)
+    if (nmasks > 0 && inter){
+        nreveal_list <- get_nreveals(nmasks)
+    } else {
+        nreveal_list <- nmasks
     }
+    ninter <- length(nreveal_list)
 
     if (verbose && nmasks > 0){
         cat("Interactive re-fitting starts:\n")
@@ -249,10 +230,10 @@ mkn_filter <- function(X, y, k,
         fstats_order <- order(rank(fstats, ties.method = "average"))
         rm_inds <- which(mask)[fstats_order[1:nreveal]]
 
-        Adecre <- cumsum(pvals[rm_inds] > 0.5)
-        Rdecre <- cumsum(pvals[rm_inds] < 0.5)
+        Adecre <- cumsum(pvals[rm_inds] > 1 / (nref + 1))
+        Rdecre <- cumsum(pvals[rm_inds] < 1 / (nref + 1))
         fdp_list <- c(fdp_list,
-                      fdp_hat(A - Adecre, R - Rdecre, offset))
+                      fdp_hat(A - Adecre, R - Rdecre, offset, nref))
         reveal_order <- c(reveal_order, rm_inds)
         A <- A - max(Adecre)
         R <- R - max(Rdecre)
@@ -266,7 +247,7 @@ mkn_filter <- function(X, y, k,
 
     qvals <- rep(1, p)
     qvals[reveal_order] <- cummin(fdp_list[1:p])
-    qvals[pvals > 0.5] <- Inf
+    qvals[pvals > 1 / (nref + 1)] <- Inf
     if (return_data){
         data <- list(X = X, y = y, knockoffs = knockoffs)
     } else {
@@ -277,3 +258,181 @@ mkn_filter <- function(X, y, k,
                    qvals = qvals, data = data),
               class = "mkn_result")
 }
+
+## mkn_filter <- function(X, y, k,
+##                        knockoffs_fun = mkn_create_gaussian,
+##                        scores_fun = mkn_scores_glmnet_coef,
+##                        fstats_fun = mkn_fstats_max,
+##                        pofstats_fun = NULL,
+##                        knockoffs_args = list(),
+##                        scores_args = list(),
+##                        fstats_args = list(),
+##                        pofstats_args = list(),
+##                        randomized = FALSE,
+##                        winnow = TRUE,
+##                        inter = TRUE,
+##                        ninter = 10,
+##                        offset = 1,
+##                        verbose = TRUE,
+##                        return_data = TRUE){
+##     if (!is.function(knockoffs_fun) ||
+##         !"X" %in% methods::formalArgs(knockoffs_fun)){
+##         stop("knockoffs_fun should be a valid function with at least X as the input")
+##     }
+##     if (!is.function(scores_fun) ||
+##         any(!c("X", "y", "knockoffs", "subset") %in% methods::formalArgs(scores_fun))){
+##         stop("scores_fun should be a valid function with at least X, y, knockoffs and subset as inputs")
+##     }
+##     if (!is.function(fstats_fun) ||
+##         any(!c("scores") %in% methods::formalArgs(fstats_fun))){
+##         stop("fstats_fun should be a valid function with at least scores as the input")
+##     }
+##     if (!is.null(pofstats_fun)){
+##         if(!is.function(pofstats_fun) ||
+##            any(!c("fstats", "mask", "pvals") %in% methods::formalArgs(pofstats_fun))){
+##             stop("pofstats_fun should be a valid function with at least fstats, mask and pvals as inputs")
+##         }
+##     }
+    
+##     if (!offset %in% c(0, 1)){
+##         stop("offset must be either 1 or 0")
+##     }
+##     if (k != floor(k) || k <= 0){
+##         stop("k must be a positive integer")
+##     }
+##     if (k == 1){
+##         winnow <- FALSE
+##         pofstats_fun <- NULL
+##     }
+##     n <- nrow(X)
+##     if (length(y) != n){
+##         stop("y should have the same length as nrow(X)")
+##     }
+##     if (!inter){
+##         ninter <- 1
+##     }
+        
+##     p <- ncol(X)
+##     knockoffs_args <- c(list(X = X, k = k), knockoffs_args)
+##     if (verbose){
+##         cat("Generating knockoff variables\n")
+##     }
+
+##     knockoffs <- do.call(knockoffs_fun, knockoffs_args)
+##     if (verbose){
+##         cat("Knockoff variables generated\n")
+##         cat("\n")
+##     }
+
+##     mask <- rep(TRUE, p)
+
+##     scores_args_root <- c(list(X = X, y = y,
+##                                knockoffs = knockoffs),
+##                           scores_args)
+##     scores_args <- c(list(subset = mask), scores_args_root)
+##     if (verbose){
+##         cat("Fitting the initial scores\n")
+##     }
+##     scores <- do.call(scores_fun, scores_args)
+##     if (verbose){
+##         cat("Initial scores obtained\n")
+##         cat("\n")
+##     }
+    
+##     info <- get_scores_info(scores$mask, randomized)
+##     pvals <- info[, 1]
+##     winnow_inds <- info[, 2]
+##     if (winnow && k > 1){
+##         knockoff_inds <- (1:p) + pmax(winnow_inds - 1, 0) * p
+##         if ("Xk" %in% names(knockoffs)){
+##             scores_args_root$knockoffs$Xk <- knockoffs$Xk[, knockoff_inds]
+##             scores_args_root$knockoffs$k <- 1
+##         }
+##     }
+
+##     A <- sum(pvals > 0.5)
+##     R <- sum(pvals < 0.5)
+##     minfdp <- fdp_hat(A, R, offset)
+##     fdp_list <- minfdp
+##     reveal_order <- vector("integer")
+
+##     if (any(winnow_inds == 0)){
+##         init_inds <- which(winnow_inds == 0)
+##         init_scores <- scores$mask[init_inds, 1]
+##         init_inds <- init_inds[order(init_scores)]
+##         fdp_list <- c(fdp_list,
+##                       fdp_hat(A - 1:length(init_inds), R, offset))
+##         A <- A - length(init_inds)
+##         reveal_order <- c(reveal_order, init_inds)
+##         mask[init_inds] <- FALSE
+##     }
+
+##     nmasks <- sum(mask)
+##     if (nmasks > 0){
+##         nreveal_list <- get_nreveals(nmasks, ninter)
+##     }
+
+##     if (verbose && nmasks > 0){
+##         cat("Interactive re-fitting starts:\n")
+##         pb <- utils::txtProgressBar(min = 0, max = ninter,
+##                                     style = 3, width = 50)
+##     }
+
+##     fstats_args_root <- fstats_args
+##     if (!is.null(pofstats_fun)){
+##         pofstats_args_root <- pofstats_args        
+##     }
+
+##     for (i in 1:ninter){
+##         nmasks <- sum(mask)
+##         if (nmasks == 0){
+##             break
+##         }
+        
+##         if (verbose){
+##             utils::setTxtProgressBar(pb, i)
+##         }
+
+##         nreveal <- nreveal_list[i]
+##         scores_args <- c(list(subset = mask), scores_args_root)
+##         scores <- do.call(scores_fun, scores_args)
+
+##         fstats_args <- c(list(scores = scores), fstats_args_root)
+##         fstats <- do.call(fstats_fun, fstats_args)
+
+##         if (!is.null(pofstats_fun)){
+##             pofstats_args <- c(list(fstats = fstats, mask = mask, pvals = pvals), pofstats_args_root)
+##             fstats <- do.call(pofstats_fun, pofstats_args)
+##         }
+
+##         fstats_order <- order(rank(fstats, ties.method = "average"))
+##         rm_inds <- which(mask)[fstats_order[1:nreveal]]
+
+##         Adecre <- cumsum(pvals[rm_inds] > 0.5)
+##         Rdecre <- cumsum(pvals[rm_inds] < 0.5)
+##         fdp_list <- c(fdp_list,
+##                       fdp_hat(A - Adecre, R - Rdecre, offset))
+##         reveal_order <- c(reveal_order, rm_inds)
+##         A <- A - max(Adecre)
+##         R <- R - max(Rdecre)
+
+##         mask[rm_inds] <- FALSE
+##     }
+##     if (verbose){
+##         cat("\n")
+##         cat("Interactive re-fitting ends\n")
+##     }
+
+##     qvals <- rep(1, p)
+##     qvals[reveal_order] <- cummin(fdp_list[1:p])
+##     qvals[pvals > 0.5] <- Inf
+##     if (return_data){
+##         data <- list(X = X, y = y, knockoffs = knockoffs)
+##     } else {
+##         data <- NULL
+##     }
+
+##     structure(list(call = match.call(),
+##                    qvals = qvals, data = data),
+##               class = "mkn_result")
+## }
